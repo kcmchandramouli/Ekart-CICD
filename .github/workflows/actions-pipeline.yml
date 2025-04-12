@@ -55,9 +55,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker Image
-        uses: docker/build-push-action@v6
-        with:
-          context: docker_file
-          push: true
-          tags: kcmchandramoulli/kcmekart:latest
+      # - name: Build Docker Image
+      #   uses: docker/build-push-action@v6
+      #   with:
+      #     context: docker_file
+      #     push: true
+      #     tags: kcmchandramoulli/kcmekart:latest
+
+      - name: docker build&push
+        run: |
+          docker build -t kcmchandramoulli/kcmekart:latest .
+          docker push kcmchandramoulli/kcmekart:latest
