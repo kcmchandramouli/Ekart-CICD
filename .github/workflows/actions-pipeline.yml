@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 jobs:
-  maven-package:
+  containerize-maven-package:
     runs-on: ubuntu-latest
 
     steps:
@@ -31,7 +31,7 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Check Versions
+      - name: Check Java & Maven Versions
         run: |
           java --version  
           mvn --version
@@ -40,7 +40,7 @@ jobs:
         run: |
           mvn clean package -DskipTests=true
 
-      - name: ls -la
+      - name: ls -la target
         run: |
           ls -la
           ls -la target
@@ -55,23 +55,23 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # - name: Build Docker Image
-      #   uses: docker/build-push-action@v6
-      #   with:
-      #     context: docker_file
-      #     push: true
-      #     tags: kcmchandramoulli/kcmekart:latest
+      - name: Build & Push Docker Image to Docker Hub
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: kcmchandramoulli/kcmekart:latest
 
-      - name: docker build&push
-        run: |
-          docker build -t kcmchandramoulli/kcmekart:latest .
-          docker push kcmchandramoulli/kcmekart:latest
+      # - name: docker build&push
+      #   run: |
+      #     docker build -t kcmchandramoulli/kcmekart:latest .
+      #     docker push kcmchandramoulli/kcmekart:latest
 
 
 
   deploy_to_AKS:
     runs-on: ubuntu-latest
-    needs: maven-package
+    needs: containerize-maven-package
 
     steps:
     - uses: actions/checkout@v4
@@ -107,18 +107,15 @@ jobs:
       uses: Azure/k8s-create-secret@v4.0
       with:
         # Choose the target Kubernetes namespace. If the namespace is not provided, the commands will run in the default namespace.
-        # namespace: # optional
+        namespace: default  # optional
         # Type of Kubernetes secret. Defaults to 'kubernetes.io/dockerconfigjson'.
         secret-type: docker-registry # optional, default is kubernetes.io/dockerconfigjson
         # Name of the secret. You can use this secret name in the Kubernetes YAML configuration file.
         secret-name: docker-image-pull-secret
         # Container Registry URL
-        container-registry-url: https://index.docker.io/v1/ #${{ secrets.ACR_URL }}  #https://index.docker.io/v1/ # optional
-        container-registry-username: ${{ vars.DOCKERHUB_USERNAME }} #${{ secrets.ACR_USERNAME }}  #${{ vars.DOCKERHUB_USERNAME }} # optional
-        container-registry-password: ${{ secrets.DOCKERHUB_PASSWORD }} #${{ secrets.ACR_PASSWORD }}  #${{ secrets.DOCKERHUB_TOKEN }} # optional
-
-    - name: ls
-      run: ls -la
+        container-registry-url: https://index.docker.io/v1/
+        container-registry-username: ${{ vars.DOCKERHUB_USERNAME }} # optional
+        container-registry-password: ${{ secrets.DOCKERHUB_PASSWORD }}  # optional
 
     - name: Set up kubectl
       uses: azure/setup-kubectl@v4
@@ -129,6 +126,6 @@ jobs:
       uses: Azure/k8s-deploy@v4.9
       with:
         manifests: deployment.yml
-        images: kcmchandramoulli/kcmekart:latest #${{ secrets.ACR_URL }}/java-bank:latest #kcmchandramoulli/java-bank:latest
+        images: kcmchandramoulli/kcmekart:latest
         imagepullsecrets: docker-image-pull-secret
         action: deploy
